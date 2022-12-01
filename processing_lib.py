@@ -1,13 +1,64 @@
+import numpy as np
+from scipy.signal import butter, filtfilt, hilbert
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return b, a
 
 
-def get_ripples_episodes_indexes(lfp, fs):
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = filtfilt(b, a, data)
+    return y
+
+
+def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     """
-    :param lfp: сигнал lfp
-    :param fs: частота дискретизации
-    :return:  массив начал и концов риппл событий
+    :param starts_and_ends: Массив начал и окончаний рипплов
+    :param fs: Частота дискретизации в Гц
+    :param gap_to_unite: Максимальное время между рипплами, при котором они
+                        считаются за один риппл в мс
+    :return ripple_zones: Массив. Первый индекс - начала риппла, второй индекс -
+                          конец. Указано в единицах, которые подавались на вход
     """
 
-    pass
+    merge_end_indeces_to_delete = np.where(starts[1:] - ends[:-1] <= gap_to_unite * fs / 1000 )[0]
+    merge_start_indeces_to_delete = merge_end_indeces_to_delete + 1
+    ends = np.delete(ends, merge_end_indeces_to_delete)
+    starts = np.delete(starts, merge_start_indeces_to_delete)
+
+    return starts, ends
+
+def get_ripples_episodes_indexes(lfp,  ripple_frqs = [150,250]):
+
+    """
+    :param lfp: Сигнал лфп
+    :param ripple_frqs: Риппл частоты
+    :return start_indxs, end_indxs: Массивы. Первый  - начала риппла, второй  -
+                                    конец. Указано в единицах, которые подавались на вход
+                                    (т.е. в частоте дискретизации)
+    """
+    filtered_lfp = np.array(butter_bandpass_filter(lfp, ripple_frqs[0], ripple_frqs[1], fs, 4))
+    envelope = np.abs(hilbert(filtered_lfp))
+    mean = np.mean(envelope)
+
+    threshold = envelope - mean > 0
+
+    ripples_for_start = np.concatenate((np.array([0], dtype=int), threshold)) # to account for boundary compications
+    starts = ripples_for_start[:-1] < ripples_for_start[1:]
+    start_indxs = np.where(starts == 1)[0]
+
+    threshold = threshold[::-1]
+    ripples_for_ends = np.concatenate((np.array([0], dtype=int), threshold)) # to account for boundary compications
+    ends = ripples_for_ends[:-1] < ripples_for_ends[1:]
+    ends = ends[::-1]
+    end_indxs = np.where(ends == 1)[0]
+    x = merge_ripple_zones(start_indxs, end_indxs, 10000)
+    start_indxs, end_indxs = x[0] - 100, x[1] + 100
+
+    return start_indxs, end_indxs
 
 def get_theta_non_theta_epoches(theta_lfp, delta_lfp):
     """
