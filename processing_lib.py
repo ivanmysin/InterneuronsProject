@@ -1,5 +1,7 @@
 import numpy as np
+from params import rhythms_freqs_range
 from scipy.signal import butter, filtfilt, hilbert
+
 def butter_bandpass(lowcut, highcut, fs, order=5):
     nyq = 0.5 * fs
     low = lowcut / nyq
@@ -16,7 +18,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 
 def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     """
-    :param starts_and_ends: Массив начал и окончаний рипплов
+    :param starts, ends: Массивы начал и окончаний рипплов
     :param fs: Частота дискретизации в Гц
     :param gap_to_unite: Максимальное время между рипплами, при котором они
                         считаются за один риппл в мс
@@ -31,7 +33,7 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
 
     return starts, ends
 
-def get_ripples_episodes_indexes(lfp,  ripple_frqs = [150,250]):
+def get_ripples_episodes_indexes(lfp,  ripple_frqs = rhythms_freqs_range['ripples']):
 
     """
     :param lfp: Сигнал лфп
