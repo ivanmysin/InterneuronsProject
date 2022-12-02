@@ -33,10 +33,11 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
 
     return starts, ends
 
-def get_ripples_episodes_indexes(lfp,  ripple_frqs = rhythms_freqs_range['ripples']):
+def get_ripples_episodes_indexes(lfp, fs,  ripple_frqs = rhythms_freqs_range['ripples']):
 
     """
     :param lfp: Сигнал лфп
+    :params fs: Частота дискретизации
     :param ripple_frqs: Риппл частоты
     :return start_indxs, end_indxs: Массивы. Первый  - начала риппла, второй  -
                                     конец. Указано в единицах, которые подавались на вход
@@ -58,7 +59,7 @@ def get_ripples_episodes_indexes(lfp,  ripple_frqs = rhythms_freqs_range['ripple
     ends = ends[::-1]
     end_indxs = np.where(ends == 1)[0]
     x = merge_ripple_zones(start_indxs, end_indxs, 10000)
-    start_indxs, end_indxs = x[0] - 100, x[1] + 100
+    start_indxs, end_indxs = x[0] - 10/1000*fs, x[1] + 10/1000*fs
 
     return start_indxs, end_indxs
 
