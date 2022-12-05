@@ -31,7 +31,7 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ends = np.delete(ends, merge_end_indeces_to_delete)
     starts = np.delete(starts, merge_start_indeces_to_delete)
 
-    ripples = np.vstack(starts, ends)
+    ripples = np.vstack((starts, ends))
     return ripples
 
 def get_ripples_episodes_indexes(lfp, fs,  ripple_frqs = rhythms_freqs_range['ripples']):
