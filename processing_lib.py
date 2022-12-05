@@ -22,8 +22,8 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     :param fs: Частота дискретизации в Гц
     :param gap_to_unite: Максимальное время между рипплами, при котором они
                         считаются за один риппл в мс
-    :return ripple_zones: Массив. Первый индекс - начала риппла, второй индекс -
-                          конец. Указано в единицах, которые подавались на вход
+    :return ripples: Массив. Первый индекс - начала риппла, второй индекс -
+                     конец. Указано в единицах, которые подавались на вход
     """
 
     merge_end_indeces_to_delete = np.where(starts[1:] - ends[:-1] <= gap_to_unite * fs / 1000 )[0]
@@ -31,7 +31,8 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ends = np.delete(ends, merge_end_indeces_to_delete)
     starts = np.delete(starts, merge_start_indeces_to_delete)
 
-    return starts, ends
+    ripples = np.vstack(starts, ends)
+    return ripples
 
 def get_ripples_episodes_indexes(lfp, fs,  ripple_frqs = rhythms_freqs_range['ripples']):
 
