@@ -87,13 +87,31 @@ def get_circular_mean_R(filtered_lfp, spike_train):
 
     return circular_mean, R
 
-def get_mean_spike_rate_by_epoches(spike_train, epoches):
+def get_for_one_epoch(limits, spikes):
+    x = spikes[(spikes >= limits[0]) & (spikes <= limits[1])].size
+    return x
+
+def get_mean_spike_rate_by_epoches(theta_epoches, non_theta_epoches, spike_train, fs):
     """
-    :param epoches: массив начал и концов эпох
+    :param theta_epoches: массив начал и концов тета эпох в формате
+                          [[start, stop], [start, stop]]
+    :param non_theta_epoches: массив начал и концов не-тета эпох в формате
+                          [[start, stop], [start, stop]]
     :param spike_train: времена импульсов
-    :return: циркулярное среднее и R
+    :param fs: частота дискретизации
+    :return: среднее для тета эпох, ст.откл. для тета эпох,
+             среднее для не-тета эпох, ст.откл. для не-тета эпох (дано в секундах)
     """
-    pass
+
+    theta = np.apply_along_axis(get_for_one_epoch, 1, theta_epoches, spike_train)
+    non_theta = np.apply_along_axis(get_for_one_epoch, 1, non_theta_epoches, spike_train)
+    theta = theta / fs
+    non_theta = non_theta / fs
+
+    theta_mean, theta_std = np.mean(theta), np.std(theta)
+    non_theta_mean, non_theta_std = np.mean(non_theta), np.std(non_theta)
+
+    return theta_mean, theta_std, non_theta_mean, non_theta_std
 
 
 class InterneuronClassifier:
