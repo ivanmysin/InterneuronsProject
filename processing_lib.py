@@ -17,13 +17,20 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp):
     """
     pass
 
-def get_circular_mean_R(filtered_lfp, fs, spike_train):
+def get_circular_mean_R(filtered_lfp, spike_train):
     """
     :param filtered_lfp: отфильтрованный в нужном диапазоне LFP
-    :param fs: частота дискретизации
     :param spike_train: времена импульсов
     :return: циркулярное среднее и R
     """
+    #fs - не нужно, т.к. спайки указаны в частоте записи лфп
+
+    phase_signal = sig.hilbert(filtered_lfp)
+    y = np.take(phase_signal, spike_train)
+    circular_mean = np.angle(np.mean(y)) + np.pi
+    R = np.abs(np.mean(y))
+
+    return circular_mean, R
 
 def get_mean_spike_rate_by_epoches(spike_train, epoches):
     """
