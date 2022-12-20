@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import h5py
@@ -18,46 +19,95 @@ def find_sessions(path, cells):
     df = df[x]
     return df
 
+
+def select_files(sourses_path):
+    SelectedFiles = []
+
+    for path, _, files in os.walk(sourses_path):
+
+        for file in files:
+            if file.find(".hdf5") == -1:
+                continue
+
+            # print(file)
+            sourse_hdf5 = h5py.File(path + '/' + file, "r")
+            for ele_key, electrode in sourse_hdf5.items():
+                try:
+                    if electrode.attrs['brainZone'] != 'CA1':
+                        continue
+                except KeyError:
+                    continue
+
+                for cluster in electrode['spikes'].values():
+                    try:
+                        if cluster.attrs['type'] != 'Int' or cluster.attrs['quality'] != 'Nice':
+                            continue
+                    except KeyError:
+                        continue
+
+                    SelectedFiles.append(path + '/' + file)
+                    break
+                break
+            sourse_hdf5.close()
+    return SelectedFiles
+
 def main():
+    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
 
-    cells = find_cells('hc3-cell.csv', 'CA1')
-    sessions = find_sessions('hc3-session.csv', cells)
-    files = sessions[2]
-    fs = 10000
-    for i in files:
+    SelectedFiles = select_files(sourses_path)
 
-            lfp = np.fromfile(i + '.eeg', dtype = np.short)[:5000]
+    for pathfile in SelectedFiles:
+        sourse_hdf5 = h5py.File(pathfile, "r")
+        file_name = pathfile.split("/")[-1]
+        target_hdf5 = h5py.File(target_path + file_name, "w")
 
-            theta_frqs = rhythms_freqs_range['theta']
-            delta_frqs = rhythms_freqs_range['delta']
-            slow_gamma_frqs = rhythms_freqs_range['slow_gamma']
-            middle_gamma_frqs = rhythms_freqs_range['middle_gamma']
-            fast_gamma_frqs = rhythms_freqs_range['fast_gamma']
-            ripples_frqs = rhythms_freqs_range['ripples']
+        for electrode_name, electrode in sourse_hdf5.items():
+            try:
+                if electrode.attrs['brainZone'] != 'CA1':
+                    continue
+            except KeyError:
+                continue
 
-            theta_lfp = butter_bandpass_filter(lfp, theta_frqs[0], theta_frqs[1], fs, 4)
-            delta_lfp = butter_bandpass_filter(lfp, delta_frqs[0], delta_frqs[1], fs, 4)
-            slow_gamma_lfp = butter_bandpass_filter(lfp, slow_gamma_frqs[0], slow_gamma_frqs[1], fs, 4)
-            middle_gamma_lfp = butter_bandpass_filter(lfp, middle_gamma_frqs[0], middle_gamma_frqs[1], fs, 4)
-            fast_gamma_lfp = butter_bandpass_filter(lfp, fast_gamma_frqs[0], fast_gamma_frqs[1], fs, 4)
-            ripples_lfp = butter_bandpass_filter(lfp, ripples_frqs[0], ripples_frqs[1], fs, 4)
+            target_ele_group = target_hdf5.create_group(electrode_name)
+            try:
+                pyr_layer_number = electrode.attrs['pyramidal_layer']
+            except KeyError:
+                pyr_layer_number = 1
 
-            theta_epoches, non_theta_epoches = get_theta_non_theta_epoches(theta_lfp, delta_lfp)
-            ripple_epoches = get_ripples_episodes_indexes(lfp, fs)
+            channels_names = sorted( electrode['lfp'].keys() )
+            lfp = electrode['lfp'][channels_names[pyr_layer_number - 1] ][:]
+            lfp = lfp.astype(np.float64)
+            fs = electrode['lfp'].attrs['lfpSamplingRate']
 
-            hf = h5py.File('results/' + i, 'w')
-            g1 = hf.create_group('filtered frequencies')
-            g2 = hf.create_group('epoches')
-            g1.create_dataset('theta_lfp', data = theta_lfp)
-            g1.create_dataset('delta_lfp', data = delta_lfp)
-            g1.create_dataset('slow_gamma_lfp', data = slow_gamma_lfp)
-            g1.create_dataset('middle_gamma_lfp', data = middle_gamma_lfp)
-            g1.create_dataset('fast_gamma_lfp', data = fast_gamma_lfp)
-            g1.create_dataset('ripples_lfp', data = ripples_lfp)
+            lfp_target_ele_group = target_ele_group.create_group('lfp')
+            for rhythm_name, rhythm_range in rhythms_freqs_range.items():
+                range_lfp = butter_bandpass_filter(lfp, rhythm_range[0], rhythm_range[1], fs, 4)
+                lfp_target_ele_group.create_dataset(rhythm_name, data=range_lfp)
 
-            g2.create_dataset('theta_epoches', data = theta_epoches)
-            g2.create_dataset('non_theta_epoches', data = non_theta_epoches)
-            g2.create_dataset('ripple_epoches', data = ripple_epoches)
+            # lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
+            # lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
+            # lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
+
+
+            spikes_target_ele_group = target_ele_group.create_group('spikes')
+            for cluster_name, cluster in electrode['spikes'].items():
+                try:
+                    if cluster.attrs['type'] != 'Int' or cluster.attrs['quality'] != 'Nice':
+                        continue
+                except KeyError:
+                    continue
+
+                target_cluster = spikes_target_ele_group.create_group(cluster_name)
+
+                target_cluster.create_dataset('train', data = cluster['train'][:]/sourse_hdf5.attrs['samplingRate'])
+
+
+        target_hdf5.close()
+        sourse_hdf5.close()
+
+
+
 
 
 if __name__ == "__main__":
