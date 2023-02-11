@@ -3,22 +3,8 @@ import pandas as pd
 import numpy as np
 import h5py
 from processing_lib import get_ripples_episodes_indexes, get_theta_non_theta_epoches, butter_bandpass_filter
-from params import rhythms_freqs_range
-
-
-def find_cells(path, zone, type = 'i'):
-
-    df = pd.read_csv(path, index_col = 0, header = None)
-    cells = df[(df[5] == zone) & (df[14] == type)]
-    return cells
-
-def find_sessions(path, cells):
-
-    df = pd.read_csv(path, index_col=0, header=None)[[1, 2]]
-    x = df[1].isin(cells[1])
-    df = df[x]
-    return df
-
+from params import rhythms_freqs_range, theta_epoches_params
+from scipy.signal import hilbert
 
 def select_files(sourses_path):
     SelectedFiles = []
@@ -77,17 +63,24 @@ def main():
 
             channels_names = sorted( electrode['lfp'].keys() )
             lfp = electrode['lfp'][channels_names[pyr_layer_number - 1] ][:]
-            lfp = lfp.astype(np.float64)
+            lfp = lfp.astype(np.float64) / sourse_hdf5.attrs['amplification']
             fs = electrode['lfp'].attrs['lfpSamplingRate']
 
             lfp_target_ele_group = target_ele_group.create_group('lfp')
+            filtered_lfp = {}
             for rhythm_name, rhythm_range in rhythms_freqs_range.items():
-                range_lfp = butter_bandpass_filter(lfp, rhythm_range[0], rhythm_range[1], fs, 4)
+                range_lfp = butter_bandpass_filter(lfp, rhythm_range[0], rhythm_range[1], fs, 3)
+                range_lfp = hilbert(range_lfp)
                 lfp_target_ele_group.create_dataset(rhythm_name, data=range_lfp)
+                filtered_lfp[rhythm_name] = range_lfp
 
-            # lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
+            theta_epoches = get_theta_non_theta_epoches(filtered_lfp["theta"], filtered_lfp["delta"], fs,\
+                                                        theta_epoches_params["theta_shreshold"], theta_epoches_params["accept_window_theta_shreshold"])
+            lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
             # lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
-            # lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
+
+            ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs,  ripple_frqs = rhythms_freqs_range['ripples'])
+            lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
 
 
             spikes_target_ele_group = target_ele_group.create_group('spikes')
@@ -105,6 +98,7 @@ def main():
 
         target_hdf5.close()
         sourse_hdf5.close()
+
 
 
 

@@ -34,18 +34,17 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ripples = np.vstack((starts, ends))
     return ripples
 
-def get_ripples_episodes_indexes(lfp, fs,  ripple_frqs = rhythms_freqs_range['ripples']):
+def get_ripples_episodes_indexes(filtered_lfp, fs,  ripple_frqs = rhythms_freqs_range['ripples']):
 
     """
-    :param lfp: Сигнал лфп
+    :param filtered_lfp: Сигнал лфп
     :params fs: Частота дискретизации
     :param ripple_frqs: Риппл частоты
     :return start_indxs, end_indxs: Массивы. Первый  - начала риппла, второй  -
                                     конец. Указано в единицах, которые подавались на вход
                                     (т.е. в частоте дискретизации)
     """
-    filtered_lfp = np.array(butter_bandpass_filter(lfp, ripple_frqs[0], ripple_frqs[1], fs, 4))
-    envelope = np.abs(hilbert(filtered_lfp))
+    envelope = np.abs(filtered_lfp)
     mean = np.mean(envelope)
 
     threshold = envelope - mean > 0
@@ -62,15 +61,38 @@ def get_ripples_episodes_indexes(lfp, fs,  ripple_frqs = rhythms_freqs_range['ri
     x = merge_ripple_zones(start_indxs, end_indxs, 10000)
     start_indxs, end_indxs = x[0] - 10/1000*fs, x[1] + 10/1000*fs
 
-    return start_indxs, end_indxs
+    ripples_epoches = np.vstack([start_indxs, end_indxs])
+    return ripples_epoches
 
-def get_theta_non_theta_epoches(theta_lfp, delta_lfp):
+def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, accept_win=10):
     """
     :param theta_lfp: отфильтрованный в тета-диапазоне LFP
     :param delta_lfp: отфильтрованный в дельа-диапазоне LFP
+    :param theta_threshold : порог для отделения тета- от дельта-эпох
+    :param accept_win : порог во времени, в котором переход не считается.
     :return: массив индексов начала и конца тета-эпох, другой массив для нетета-эпох
     """
-    pass
+    theta_lfp_abs = np.abs(theta_lfp)
+    delta_lfp_abs = np.abs(delta_lfp)
+    theta2delta = theta_lfp_abs / delta_lfp_abs
+    theta2delta[theta2delta > 10] = 10  # Замена зашкаливающих значений
+    theta2delta[np.isnan(theta2delta)] = 0
+    is_theta = (theta2delta > theta_threshold).astype(np.int32)
+    diff = np.diff(is_theta)
+    diff = np.append(is_theta[0], diff)
+
+    start_idx = np.ravel(np.argwhere(diff == 1))
+    end_idx = np.ravel(np.argwhere(diff == -1))
+    if start_idx[0] == 0:
+        end_idx = np.append(end_idx, theta2delta.size - 1)
+
+    accept_intervals = (end_idx - start_idx) > (accept_win*fs)
+    start_idx = start_idx[accept_intervals]
+    end_idx = end_idx[accept_intervals]
+    theta_epoches = np.vstack([start_idx, end_idx])
+    return theta_epoches
+
+
 
 def get_circular_mean_R(filtered_lfp, spike_train):
     """
@@ -80,7 +102,7 @@ def get_circular_mean_R(filtered_lfp, spike_train):
     """
     #fs - не нужно, т.к. спайки указаны в частоте записи лфп
 
-    phase_signal = sig.hilbert(filtered_lfp)
+    phase_signal = filtered_lfp
     y = np.take(phase_signal, spike_train)
     circular_mean = np.angle(np.mean(y)) + np.pi
     R = np.abs(np.mean(y))
