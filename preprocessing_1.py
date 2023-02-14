@@ -74,10 +74,10 @@ def main():
                 lfp_target_ele_group.create_dataset(rhythm_name, data=range_lfp)
                 filtered_lfp[rhythm_name] = range_lfp
 
-            theta_epoches = get_theta_non_theta_epoches(filtered_lfp["theta"], filtered_lfp["delta"], fs,\
+            theta_epoches, non_theta_epoches = get_theta_non_theta_epoches(filtered_lfp["theta"], filtered_lfp["delta"], fs,\
                                                         theta_epoches_params["theta_shreshold"], theta_epoches_params["accept_window_theta_shreshold"])
             lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
-            # lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
+            lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
 
             ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs,  ripple_frqs = rhythms_freqs_range['ripples'])
             lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
