@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import h5py
-from processing_lib import get_ripples_episodes_indexes, get_theta_non_theta_epoches, butter_bandpass_filter
+from processing_lib import get_ripples_episodes_indexes, get_theta_non_theta_epoches, butter_bandpass_filter, clear_articacts
 from params import rhythms_freqs_range, theta_epoches_params
 from scipy.signal import hilbert
 
@@ -64,6 +64,7 @@ def main():
             channels_names = sorted( electrode['lfp'].keys() )
             lfp = electrode['lfp'][channels_names[pyr_layer_number - 1] ][:]
             lfp = lfp.astype(np.float64) / sourse_hdf5.attrs['amplification']
+            lfp = clear_articacts(lfp)
             fs = electrode['lfp'].attrs['lfpSamplingRate']
 
             lfp_target_ele_group = target_ele_group.create_group('lfp')
@@ -95,7 +96,7 @@ def main():
 
                 target_cluster.create_dataset('train', data = cluster['train'][:]/sourse_hdf5.attrs['samplingRate'])
 
-
+        print(file_name + " is processed")
         target_hdf5.close()
         sourse_hdf5.close()
 

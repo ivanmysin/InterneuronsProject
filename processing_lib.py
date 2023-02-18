@@ -1,6 +1,19 @@
 import numpy as np
 from params import rhythms_freqs_range
 from scipy.signal import butter, filtfilt, hilbert
+from scipy.signal.windows import parzen
+
+
+def clear_articacts(lfp, win_size=101, threshold=0.1):
+    lfp = lfp - np.mean(lfp)
+    lfp_std = np.std(lfp)
+    is_large = np.logical_and( (lfp > 10*lfp_std), (lfp < 10*lfp_std) )
+    is_large = is_large.astype(np.float64)
+    is_large = np.convolve(is_large, parzen(win_size), mode='same')
+    is_large = is_large > threshold
+
+    lfp[is_large] = np.random.normal(0, 0.001*lfp_std, np.sum(is_large) )
+    return lfp
 
 def butter_bandpass(lowcut, highcut, fs, order=5):
     nyq = 0.5 * fs
