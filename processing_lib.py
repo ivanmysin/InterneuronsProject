@@ -169,8 +169,9 @@ def get_circular_mean_R(filtered_lfp, spike_train):
 
     phase_signal = filtered_lfp
     y = np.take(phase_signal, spike_train)
-    circular_mean = np.angle(np.mean(y)) + np.pi
-    R = np.abs(np.mean(y))
+    mean_y = np.mean(y)
+    circular_mean = np.angle(mean_y) #+ np.pi
+    R = np.abs(mean_y)
 
     return circular_mean, R
 
