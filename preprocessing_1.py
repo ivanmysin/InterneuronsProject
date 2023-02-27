@@ -37,12 +37,12 @@ def select_files(sourses_path):
     return SelectedFiles
 
 def main():
-    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
-    target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
 
     SelectedFiles = select_files(sourses_path)
 
-    for pathfile in SelectedFiles:
+    for file_idx, pathfile in enumerate(sorted(SelectedFiles)):
         sourse_hdf5 = h5py.File(pathfile, "r")
         file_name = pathfile.split("/")[-1]
         target_hdf5 = h5py.File(target_path + file_name, "w")
@@ -82,20 +82,22 @@ def main():
             ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs)
             lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
 
-
-            spikes_target_ele_group = target_ele_group.create_group('spikes')
-            for cluster_name, cluster in electrode['spikes'].items():
-                try:
-                    if cluster.attrs['type'] != 'Int' or cluster.attrs['quality'] != 'Nice':
+            try:
+                spikes_target_ele_group = target_ele_group.create_group('spikes')
+                for cluster_name, cluster in electrode['spikes'].items():
+                    try:
+                        if cluster.attrs['type'] != 'Int' or cluster.attrs['quality'] != 'Nice':
+                            continue
+                    except KeyError:
                         continue
-                except KeyError:
-                    continue
 
-                target_cluster = spikes_target_ele_group.create_group(cluster_name)
+                    target_cluster = spikes_target_ele_group.create_group(cluster_name)
 
-                target_cluster.create_dataset('train', data = cluster['train'][:]/sourse_hdf5.attrs['samplingRate'])
-
-        print(file_name + " is processed")
+                    target_cluster.create_dataset('train', data = cluster['train'][:]/sourse_hdf5.attrs['samplingRate'])
+            except KeyError:
+                pass
+            
+        print(file_idx, "  ", file_name + " is processed")
         target_hdf5.close()
         sourse_hdf5.close()
 
