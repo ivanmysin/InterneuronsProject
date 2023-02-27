@@ -30,6 +30,6 @@ feasures_names.extend(["non_ts_gamma_f_phi", "non_ts_gamma_f_R"])
 feasures_names.extend(["ripples_phi", "ripples_R"])
 
 # spike rate in theta, non-theta state and ripples
-feasures_names.extend(["ts_mean_spike_rate", "ts_std_spike_rate"])
+feasures_names.extend(["ts_spike_rate", "ts_spike_rate_std"])
 feasures_names.extend(["non_ts_mean_spike_rate", "non_ts_std_spike_rate"])
-feasures_names.extend(["ripple_ts_mean_spike_rate", "ripple_ts_std_spike_rate"])
+feasures_names.extend(["ripples_spike_rate", "ripples_spike_rate_std"])

@@ -176,30 +176,34 @@ def get_circular_mean_R(filtered_lfp, spike_train):
     return circular_mean, R
 
 def get_for_one_epoch(limits, spikes):
-    x = spikes[(spikes >= limits[0]) & (spikes <= limits[1])].size
+    x = spikes[(spikes >= limits[0]) & (spikes < limits[1])]
     return x
+def get_over_all_epoches(epoches_indexes, spike_train):
+    spikes_during_epoches = np.empty(0, dtype=spike_train.dtype)
+    for (start_idx, end_idx) in epoches_indexes:
+        spikes_in_epoch = get_for_one_epoch((start_idx, end_idx), spike_train)
+        spikes_during_epoches = np.append(spikes_during_epoches, spikes_in_epoch)
+    return spikes_during_epoches
 
-def get_mean_spike_rate_by_epoches(theta_epoches, non_theta_epoches, spike_train, fs):
+def get_mean_spike_rate_by_epoches(epoches_indexes, spike_train, samplingRate):
     """
-    :param theta_epoches: массив начал и концов тета эпох в формате
+    :param epoches_indexes: массив начал и концов тета эпох в формате
                           [[start, stop], [start, stop]]
-    :param non_theta_epoches: массив начал и концов не-тета эпох в формате
-                          [[start, stop], [start, stop]]
-    :param spike_train: времена импульсов
-    :param fs: частота дискретизации
-    :return: среднее для тета эпох, ст.откл. для тета эпох,
-             среднее для не-тета эпох, ст.откл. для не-тета эпох (дано в секундах)
+    :param spike_train: индексы импульсов
+    :param samplingRate: частота дискретизации
+    :return: среднее для  эпох, ст.откл.
     """
 
-    theta = np.apply_along_axis(get_for_one_epoch, 1, theta_epoches, spike_train)
-    non_theta = np.apply_along_axis(get_for_one_epoch, 1, non_theta_epoches, spike_train)
-    theta = theta / fs
-    non_theta = non_theta / fs
+    spikes = []
+    for (start_idx, end_idx) in epoches_indexes:
+        spikes_in_epoches = get_for_one_epoch((start_idx, end_idx), spike_train)
+        spikes_rate = spikes_in_epoches.size / (end_idx - start_idx) * samplingRate
+        spikes.append(spikes_rate)
+    spikes = np.asarray(spikes)
+    spike_rate = np.mean(spikes)
+    spike_rate_std = np.std(spikes)
 
-    theta_mean, theta_std = np.mean(theta), np.std(theta)
-    non_theta_mean, non_theta_std = np.mean(non_theta), np.std(non_theta)
-
-    return theta_mean, theta_std, non_theta_mean, non_theta_std
+    return spike_rate, spike_rate_std
 
 
 class InterneuronClassifier:
