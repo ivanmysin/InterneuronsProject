@@ -47,7 +47,7 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ripples = np.vstack((starts, ends))
     return ripples
 
-def get_ripples_episodes_indexes(filtered_lfp, fs,  ripple_frqs = rhythms_freqs_range['ripples']):
+def get_ripples_episodes_indexes(filtered_lfp, fs):
 
     """
     :param filtered_lfp: Сигнал лфп
@@ -71,9 +71,12 @@ def get_ripples_episodes_indexes(filtered_lfp, fs,  ripple_frqs = rhythms_freqs_
     ends = ripples_for_ends[:-1] < ripples_for_ends[1:]
     ends = ends[::-1]
     end_indxs = np.where(ends == 1)[0]
-    x = merge_ripple_zones(start_indxs, end_indxs, 10000)
-    start_indxs, end_indxs = x[0] - 10/1000*fs, x[1] + 10/1000*fs
-
+    start_indxs = start_indxs - 10 / 1000 * fs
+    end_indxs = end_indxs + 10 / 1000 * fs
+    x = merge_ripple_zones(start_indxs, end_indxs, fs)
+    start_indxs, end_indxs = x[0], x[1]
+    if start_indxs[0] < 0: start_indxs[0] = 0
+    if end_indxs[-1] > filtered_lfp.size: end_indxs[-1] = filtered_lfp.size
     ripples_epoches = np.vstack([start_indxs, end_indxs])
     return ripples_epoches
 
