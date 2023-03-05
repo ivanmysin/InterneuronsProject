@@ -4,6 +4,8 @@ import h5py
 from processing_lib import get_ripples_episodes_indexes, get_theta_non_theta_epoches, butter_bandpass_filter, clear_articacts
 from params import rhythms_freqs_range, theta_epoches_params
 from scipy.signal import hilbert
+import multiprocessing
+
 
 def select_files(sourses_path):
     SelectedFiles = []
@@ -14,8 +16,10 @@ def select_files(sourses_path):
             if file.find(".hdf5") == -1:
                 continue
 
-            # print(file)
-            sourse_hdf5 = h5py.File(path + '/' + file, "r")
+            try:
+                sourse_hdf5 = h5py.File(path + '/' + file, "r")
+            except OSError:
+                continue
             for ele_key, electrode in sourse_hdf5.items():
                 try:
                     if electrode.attrs['brainZone'] != 'CA1':
@@ -36,12 +40,11 @@ def select_files(sourses_path):
             sourse_hdf5.close()
     return SelectedFiles
 
-def main():
-    sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
-    target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
 
-    SelectedFiles = select_files(sourses_path)
-
+def run_processing_1(params):
+    
+    SelectedFiles = params[0]
+    target_path =  params[1]
     for file_idx, pathfile in enumerate(sorted(SelectedFiles)):
         sourse_hdf5 = h5py.File(pathfile, "r")
         file_name = pathfile.split("/")[-1]
@@ -79,7 +82,7 @@ def main():
             lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
             lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
 
-            ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs,  ripple_frqs = rhythms_freqs_range['ripples'])
+            ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs)
             lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
 
             try:
@@ -100,6 +103,25 @@ def main():
         print(file_idx, "  ", file_name + " is processed")
         target_hdf5.close()
         sourse_hdf5.close()
+
+
+
+
+def main():
+    sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+
+    SelectedFiles = select_files(sourses_path)
+    n_cpu = multiprocessing.cpu_count()
+    FileByThreds = []
+    for idx in range(n_cpu):
+        params = [SelectedFiles[idx::n_cpu], target_path]
+        FileByThreds.append(params)
+        
+    
+    with multiprocessing.Pool(n_cpu) as run_pool:
+        run_pool.map(run_processing_1, FileByThreds)
+    
 
 
 
