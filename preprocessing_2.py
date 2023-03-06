@@ -6,7 +6,7 @@ import pandas as pd
 import processing_lib as plib
 def main():
     samplingRate = 1250 # !!!!!!!!!
-    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    sourses_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
     target_path = './results/feasures_table.hdf5'
 
     feasures_table = pd.DataFrame(columns=feasures_names)
@@ -77,10 +77,10 @@ def main():
         print(filename, " is processed")
 
 
-    #print(feasures_table)
+    print(feasures_table)
     # Результаты сохраняем в виде таблицы объекты/признаки в файл директории results для классификации
     # сохраняем таблицу в файл feasures_table
-    feasures_table.to_hdf(target_path,  key='interneurons_feasures', mode='w')
+    feasures_table.to_hdf(target_path, key='interneurons_feasures', mode='w')
 
 if __name__ == "__main__":
     main()
