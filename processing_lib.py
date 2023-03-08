@@ -162,21 +162,36 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
 
 
 
-def get_circular_mean_R(filtered_lfp, spike_train):
+def get_circular_mean_R(filtered_lfp, spike_train, mean_calculation = 'uniform'):
     """
     :param filtered_lfp: отфильтрованный в нужном диапазоне LFP
     :param spike_train: времена импульсов
+    :mean_calculation: способ вычисления циркулярного среднего и R
     :return: циркулярное среднее и R
     """
     #fs - не нужно, т.к. спайки указаны в частоте записи лфп
 
-    phase_signal = filtered_lfp
-    y = np.take(phase_signal, spike_train)
-    mean_y = np.mean(y)
-    circular_mean = np.angle(mean_y) #+ np.pi
-    R = np.abs(mean_y)
+    match mean_calculation:
 
-    return circular_mean, R
+        case 'uniform':
+            angles = np.angle(np.take(filtered_lfp, spike_train))
+            mean = np.mean(np.exp(angles * 1j))
+            circular_mean = np.angle(mean)
+            R = np.abs(mean)
+
+            return circular_mean, R
+
+        case 'normalized':
+            phase_signal = np.take(filtered_lfp, spike_train)
+            phase_signal = phase_signal / np.max(np.abs(phase_signal))
+            mean = np.mean(phase_signal)
+            circular_mean = np.angle(mean)
+            R = np.abs(mean)
+
+            return circular_mean, R
+
+        case _:
+            raise ValueError("This mean_calculation is not acceptable")
 
 def get_for_one_epoch(limits, spikes):
     x = spikes[(spikes >= limits[0]) & (spikes < limits[1])]
