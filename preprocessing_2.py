@@ -74,7 +74,9 @@ def run_processing_2(params):
 
                     # заносим все в таблицу
                     feasures_table.loc[len(feasures_table)] = pd.Series(neuron_feasures)
+
         print(filename, " is processed")
+    return feasures_table
 
 def main():
     samplingRate = 1250 # !!!!!!!!!
@@ -82,7 +84,7 @@ def main():
     #'/media/usb/Data/InterneuronsProject/preprocessing_1/'
     target_path = './results/feasures_table.hdf5'
 
-    sourses_files = os.listdir(sourses_path)
+    sourses_files = sorted(os.listdir(sourses_path))
     n_cpu = multiprocessing.cpu_count()
     FileByThreds = []
     for idx in range(n_cpu):
@@ -91,6 +93,7 @@ def main():
 
     with multiprocessing.Pool(n_cpu) as run_pool:
         feasures_tables = run_pool.map(run_processing_2, FileByThreds)
+    print(feasures_tables)
     feasures_table = pd.concat(feasures_tables)
 
 
