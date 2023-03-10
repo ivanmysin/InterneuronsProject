@@ -171,7 +171,8 @@ def get_circular_mean_R(filtered_lfp, spike_train, mean_calculation = 'uniform')
     :return: циркулярное среднее и R
     """
     #fs - не нужно, т.к. спайки указаны в частоте записи лфп
-
+    if spike_train.size == 0:
+        return np.nan, np.nan
     if mean_calculation == 'uniform':
         angles = np.angle(np.take(filtered_lfp, spike_train))
         mean = np.mean(np.exp(angles * 1j))
