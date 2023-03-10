@@ -49,6 +49,7 @@ def run_processing_1(params):
         sourse_hdf5 = h5py.File(pathfile, "r")
         file_name = pathfile.split("/")[-1]
         target_hdf5 = h5py.File(target_path + file_name, "w")
+        target_hdf5.attrs["sourse_pathfile"] = pathfile
 
         for electrode_name, electrode in sourse_hdf5.items():
             try:

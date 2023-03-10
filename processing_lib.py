@@ -47,38 +47,39 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ripples = np.vstack((starts, ends))
     return ripples
 
-def get_ripples_episodes_indexes(filtered_lfp, fs):
 
+def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     """
-    :param filtered_lfp: Сигнал лфп
-    :params fs: Частота дискретизации
-    :param ripple_frqs: Риппл частоты
-    :return start_indxs, end_indxs: Массивы. Первый  - начала риппла, второй  -
-                                    конец. Указано в единицах, которые подавались на вход
-                                    (т.е. в частоте дискретизации)
+    :param ripples_lfp: сигнал lfp, отфильтрованный в риппл-диапазоне
+    :param fs: частота дискретизации
+    :param threshold: порог для определения риппла
+    :param accept_win: минимальная длина риппла в сек
+    :return:  списки начал и концов риппл событий в единицах, указанных в частоте дискретизации (fs)
     """
-    envelope = np.abs(filtered_lfp)
-    mean = np.mean(envelope)
 
-    threshold = envelope - mean > 0
+    ripples_lfp_th = threshold * np.std(ripples_lfp.real)
+    ripples_abs = np.abs(ripples_lfp)
+    is_up_threshold = ripples_abs > ripples_lfp_th
+    is_up_threshold = is_up_threshold.astype(np.int32)
+    diff = np.diff(is_up_threshold)
+    diff = np.append(is_up_threshold[0], diff)
 
-    ripples_for_start = np.concatenate((np.array([0], dtype=int), threshold)) # to account for boundary compications
-    starts = ripples_for_start[:-1] < ripples_for_start[1:]
-    start_indxs = np.where(starts == 1)[0]
+    start_idx = np.ravel(np.argwhere(diff == 1))
+    end_idx = np.ravel(np.argwhere(diff == -1))
 
-    threshold = threshold[::-1]
-    ripples_for_ends = np.concatenate((np.array([0], dtype=int), threshold)) # to account for boundary compications
-    ends = ripples_for_ends[:-1] < ripples_for_ends[1:]
-    ends = ends[::-1]
-    end_indxs = np.where(ends == 1)[0]
-    start_indxs = start_indxs - 10 / 1000 * fs
-    end_indxs = end_indxs + 10 / 1000 * fs
-    x = merge_ripple_zones(start_indxs, end_indxs, fs)
-    start_indxs, end_indxs = x[0], x[1]
-    if start_indxs[0] < 0: start_indxs[0] = 0
-    if end_indxs[-1] > filtered_lfp.size: end_indxs[-1] = filtered_lfp.size
-    ripples_epoches = np.vstack([start_indxs, end_indxs])
+    if end_idx[0] < start_idx[0]:
+        start_idx.insert(0, 0)
+
+    if start_idx[-1] > end_idx[-1]:
+        end_idx.append(len(ripples_lfp) - 1)
+
+    accept_intervals = (end_idx - start_idx) > accept_win * fs
+    start_idx = start_idx[accept_intervals]
+    end_idx = end_idx[accept_intervals]
+
+    ripples_epoches = np.vstack([start_idx, end_idx])
     return ripples_epoches
+
 
 def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, accept_win=2):
     """
@@ -171,27 +172,22 @@ def get_circular_mean_R(filtered_lfp, spike_train, mean_calculation = 'uniform')
     """
     #fs - не нужно, т.к. спайки указаны в частоте записи лфп
 
-    match mean_calculation:
+    if mean_calculation == 'uniform':
+        angles = np.angle(np.take(filtered_lfp, spike_train))
+        mean = np.mean(np.exp(angles * 1j))
+        circular_mean = np.angle(mean)
+        R = np.abs(mean)
+        return circular_mean, R
 
-        case 'uniform':
-            angles = np.angle(np.take(filtered_lfp, spike_train))
-            mean = np.mean(np.exp(angles * 1j))
-            circular_mean = np.angle(mean)
-            R = np.abs(mean)
-
-            return circular_mean, R
-
-        case 'normalized':
-            phase_signal = np.take(filtered_lfp, spike_train)
-            phase_signal = phase_signal / np.max(np.abs(phase_signal))
-            mean = np.mean(phase_signal)
-            circular_mean = np.angle(mean)
-            R = np.abs(mean)
-
-            return circular_mean, R
-
-        case _:
-            raise ValueError("This mean_calculation is not acceptable")
+    elif mean_calculation == 'normalized':
+        phase_signal = np.take(filtered_lfp, spike_train)
+        phase_signal = phase_signal / np.sum(np.abs(phase_signal))
+        mean = np.sum(phase_signal)
+        circular_mean = np.angle(mean)
+        R = np.abs(mean)
+        return circular_mean, R
+    else:
+        raise ValueError("This mean_calculation is not acceptable")
 
 def get_for_one_epoch(limits, spikes):
     x = spikes[(spikes >= limits[0]) & (spikes < limits[1])]

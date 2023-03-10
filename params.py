@@ -15,6 +15,16 @@ theta_epoches_params = {
     "accept_window_theta_shreshold" : 2, # секунды
 }
 
+circ_means_options = {
+    "delta": "uniform",
+    "theta": "uniform",
+    "slow_gamma": 'normalized',
+    "middle_gamma": 'normalized',
+    "fast_gamma": 'normalized',
+    "ripples": 'normalized',
+
+}
+
 feasures_names = ["theta_phi", "theta_R"]
 # gamma phases in theta state, s - slow, m - medium, f - fast
 feasures_names.extend(["ts_gamma_s_phi", "ts_gamma_s_R"])

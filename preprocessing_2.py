@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import h5py
-from params import rhythms_freqs_range, feasures_names
+from params import rhythms_freqs_range, feasures_names, circ_means_options
 import pandas as pd
 import processing_lib as plib
 def main():
@@ -51,8 +51,8 @@ def main():
                     spikes_during_non_theta_epoches = plib.get_over_all_epoches(non_theta_epoches, spike_train)
                     spikes_during_ripples_epoches = plib.get_over_all_epoches(ripple_epoches, spike_train)
 
-                    theta_phase, theta_R = plib.get_circular_mean_R(lfp_by_ranges["theta"], spikes_during_theta_epoches)
-                    ripples_phase, ripples_R = plib.get_circular_mean_R(lfp_by_ranges["ripples"], spikes_during_ripples_epoches)
+                    theta_phase, theta_R = plib.get_circular_mean_R(lfp_by_ranges["theta"], spikes_during_theta_epoches, mean_calculation=circ_means_options["theta"])
+                    ripples_phase, ripples_R = plib.get_circular_mean_R(lfp_by_ranges["ripples"], spikes_during_ripples_epoches, mean_calculation=circ_means_options["ripples"])
 
                     neuron_feasures["theta_phi"] = theta_phase
                     neuron_feasures["theta_R"] = theta_R
@@ -61,14 +61,14 @@ def main():
 
                     for rhythm_name, lfp_range in lfp_by_ranges.items():
                         if not("gamma" in rhythm_name): continue
-                        gamma_phase, gamma_R = plib.get_circular_mean_R(lfp_range, spikes_during_theta_epoches)
+                        gamma_phase, gamma_R = plib.get_circular_mean_R(lfp_range, spikes_during_theta_epoches, mean_calculation=circ_means_options[rhythm_name])
 
                         neuron_feasures["ts_gamma_" + rhythm_name[0] + "_phi"] = gamma_phase
                         neuron_feasures["ts_gamma_" + rhythm_name[0] + "_R"] = gamma_R
 
                     for rhythm_name, lfp_range in lfp_by_ranges.items():
                         if not("gamma" in rhythm_name): continue
-                        gamma_phase, gamma_R = plib.get_circular_mean_R(lfp_range, spikes_during_non_theta_epoches)
+                        gamma_phase, gamma_R = plib.get_circular_mean_R(lfp_range, spikes_during_non_theta_epoches, mean_calculation=circ_means_options[rhythm_name])
                         neuron_feasures["non_ts_gamma_" + rhythm_name[0] + "_phi"] = gamma_phase
                         neuron_feasures["non_ts_gamma_" + rhythm_name[0] + "_R"] = gamma_R
 
