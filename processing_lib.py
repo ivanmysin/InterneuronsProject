@@ -1,9 +1,9 @@
 import numpy as np
-from params import rhythms_freqs_range
 from scipy.signal import butter, filtfilt, hilbert
 from scipy.signal.windows import parzen
+from numba import jit
 
-
+@jit(nopython=True)
 def clear_articacts(lfp, win_size=101, threshold=0.1):
     lfp = lfp - np.mean(lfp)
     lfp_std = np.std(lfp)
@@ -47,7 +47,7 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ripples = np.vstack((starts, ends))
     return ripples
 
-
+@jit(nopython=True)
 def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     """
     :param ripples_lfp: сигнал lfp, отфильтрованный в риппл-диапазоне
@@ -80,7 +80,7 @@ def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     ripples_epoches = np.vstack([start_idx, end_idx])
     return ripples_epoches
 
-
+@jit(nopython=True)
 def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, accept_win=2):
     """
     :param theta_lfp: отфильтрованный в тета-диапазоне LFP
@@ -162,7 +162,7 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
     return theta_epoches, non_theta_epoches
 
 
-
+@jit(nopython=True)
 def get_circular_mean_R(filtered_lfp, spike_train, mean_calculation = 'uniform'):
     """
     :param filtered_lfp: отфильтрованный в нужном диапазоне LFP
@@ -188,10 +188,11 @@ def get_circular_mean_R(filtered_lfp, spike_train, mean_calculation = 'uniform')
         return circular_mean, R
     else:
         raise ValueError("This mean_calculation is not acceptable")
-
+@jit(nopython=True)
 def get_for_one_epoch(limits, spikes):
     x = spikes[(spikes >= limits[0]) & (spikes < limits[1])]
     return x
+@jit(nopython=True)
 def get_over_all_epoches(epoches_indexes, spike_train):
     spikes_during_epoches = np.empty(0, dtype=spike_train.dtype)
     for (start_idx, end_idx) in epoches_indexes:
@@ -199,6 +200,7 @@ def get_over_all_epoches(epoches_indexes, spike_train):
         spikes_during_epoches = np.append(spikes_during_epoches, spikes_in_epoch)
     return spikes_during_epoches
 
+@jit(nopython=True)
 def get_mean_spike_rate_by_epoches(epoches_indexes, spike_train, samplingRate):
     """
     :param epoches_indexes: массив начал и концов тета эпох в формате

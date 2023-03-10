@@ -4,15 +4,15 @@ import h5py
 from params import rhythms_freqs_range, feasures_names, circ_means_options
 import pandas as pd
 import processing_lib as plib
-def main():
-    samplingRate = 1250 # !!!!!!!!!
-    sourses_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
-    target_path = './results/feasures_table.hdf5'
+import multiprocessing
+def run_processing_2(params):
+    sourses_files = params[0]
+    sourses_path = params[1]
+    samplingRate = params[2]
 
     feasures_table = pd.DataFrame(columns=feasures_names)
-
     # Цикл по файлам директории preprocessing_1_results
-    for filename in os.listdir(sourses_path):
+    for filename in sourses_files:
         if filename[-5:] != '.hdf5': continue
 
         with h5py.File(sourses_path + filename, 'r') as sourse_hdf5:
@@ -75,6 +75,24 @@ def main():
                     # заносим все в таблицу
                     feasures_table.loc[len(feasures_table)] = pd.Series(neuron_feasures)
         print(filename, " is processed")
+
+def main():
+    samplingRate = 1250 # !!!!!!!!!
+    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    #'/media/usb/Data/InterneuronsProject/preprocessing_1/'
+    target_path = './results/feasures_table.hdf5'
+
+    sourses_files = os.listdir(sourses_path)
+    n_cpu = multiprocessing.cpu_count()
+    FileByThreds = []
+    for idx in range(n_cpu):
+        params = [sourses_files[idx::n_cpu], sourses_path, samplingRate]
+        FileByThreds.append(params)
+
+    with multiprocessing.Pool(n_cpu) as run_pool:
+        feasures_tables = run_pool.map(run_processing_2, FileByThreds)
+    feasures_table = pd.concat(feasures_tables)
+
 
 
     print(feasures_table)
