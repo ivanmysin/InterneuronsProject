@@ -4,7 +4,7 @@ from scipy.signal.windows import parzen
 from numba import jit
 
 #@jit(nopython=True)
-def clear_articacts(lfp, fs = 1250, win_len = 2500, tol_thresh_mult = 15, min_len_mult = 3, show = False):
+def clear_artifacts(lfp, fs = 1250, win_len = 2500, tol_thresh_mult = 15, min_len_mult = 3, show = False):
     #win_len - длительнгость фрагментов, на которые нарезается сигнал
     #tol_thresh_mult - чистка проводится по выбросам (fliers), но многие выбросы визуально близки
     #к "нормальным" значениям размаха потенциала, из-за чего сигнал слишком мелко нарезается, если
