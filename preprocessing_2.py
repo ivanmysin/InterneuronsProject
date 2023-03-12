@@ -12,7 +12,8 @@ def run_processing_2(params):
 
     feasures_table = pd.DataFrame(columns=feasures_names)
     # Цикл по файлам директории preprocessing_1_results
-    for filename in sourses_files:
+    for file_idx, filename in enumerate(sourses_files):
+
         if filename[-5:] != '.hdf5': continue
 
         with h5py.File(sourses_path + filename, 'r') as sourse_hdf5:
@@ -75,13 +76,13 @@ def run_processing_2(params):
                     # заносим все в таблицу
                     feasures_table.loc[len(feasures_table)] = pd.Series(neuron_feasures)
 
-        print(filename, " is processed")
+        print(file_idx, " ", filename, " is processed")
     return feasures_table
 
 def main():
     samplingRate = 1250 # !!!!!!!!!
     sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
-    #'/media/usb/Data/InterneuronsProject/preprocessing_1/'
+    # sourses_path =  '/media/usb/Data/InterneuronsProject/preprocessing_1/'
     target_path = './results/feasures_table.hdf5'
 
     sourses_files = sorted(os.listdir(sourses_path))
@@ -98,7 +99,7 @@ def main():
 
 
 
-    print(feasures_table)
+    #print(feasures_table)
     # Результаты сохраняем в виде таблицы объекты/признаки в файл директории results для классификации
     # сохраняем таблицу в файл feasures_table
     feasures_table.to_hdf(target_path, key='interneurons_feasures', mode='w')

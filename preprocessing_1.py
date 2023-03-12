@@ -46,6 +46,7 @@ def run_processing_1(params):
     SelectedFiles = params[0]
     target_path =  params[1]
     for file_idx, pathfile in enumerate(sorted(SelectedFiles)):
+        #if file_idx < 29: continue
         sourse_hdf5 = h5py.File(pathfile, "r")
         file_name = pathfile.split("/")[-1]
         target_hdf5 = h5py.File(target_path + file_name, "w")
@@ -109,7 +110,9 @@ def run_processing_1(params):
 
 
 def main():
+    # sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
     sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    # target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
     target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
 
     SelectedFiles = select_files(sourses_path)

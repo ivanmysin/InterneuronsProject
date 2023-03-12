@@ -3,7 +3,7 @@ from scipy.signal import butter, filtfilt, hilbert
 from scipy.signal.windows import parzen
 from numba import jit
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def clear_articacts(lfp, win_size=101, threshold=0.1):
     lfp = lfp - np.mean(lfp)
     lfp_std = np.std(lfp)
@@ -47,7 +47,7 @@ def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
     ripples = np.vstack((starts, ends))
     return ripples
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     """
     :param ripples_lfp: сигнал lfp, отфильтрованный в риппл-диапазоне
@@ -217,6 +217,8 @@ def get_mean_spike_rate_by_epoches(epoches_indexes, spike_train, samplingRate):
         spikes_rate = spikes_in_epoches.size / (end_idx - start_idx) * samplingRate
         spikes.append(spikes_rate)
     spikes = np.asarray(spikes)
+    if spikes.size == 0:
+        return 0, 0
     spike_rate = np.mean(spikes)
     spike_rate_std = np.std(spikes)
 
