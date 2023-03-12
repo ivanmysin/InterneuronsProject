@@ -110,10 +110,10 @@ def run_processing_1(params):
 
 
 def main():
-    # sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
-    sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
-    # target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
-    target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    # sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    #target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
 
     SelectedFiles = select_files(sourses_path)
     n_cpu = multiprocessing.cpu_count()

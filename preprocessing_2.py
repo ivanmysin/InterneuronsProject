@@ -81,8 +81,8 @@ def run_processing_2(params):
 
 def main():
     samplingRate = 1250 # !!!!!!!!!
-    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
-    # sourses_path =  '/media/usb/Data/InterneuronsProject/preprocessing_1/'
+    #sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    sourses_path =  '/media/usb/Data/InterneuronsProject/preprocessing_1/'
     target_path = './results/feasures_table.hdf5'
 
     sourses_files = sorted(os.listdir(sourses_path))
