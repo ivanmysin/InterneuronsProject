@@ -10,7 +10,7 @@ rhythms_freqs_range = {
 }
 
 theta_epoches_params = {
-    "theta_shreshold" : 2,
+    "theta_threshold" : 2,
     "accept_window_theta_shreshold" : 2, # секунды
 }
 
@@ -25,7 +25,7 @@ circ_means_options = {
 }
 
 ripples_detec = {
-    "threshold" : 4,
+    "threshold" : 3,
     "accept_win" : 0.02
 }
 
