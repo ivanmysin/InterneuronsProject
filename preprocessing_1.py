@@ -105,7 +105,7 @@ def run_processing_1(params):
         print(file_idx, "  ", file_name + " is processed")
         target_hdf5.close()
         sourse_hdf5.close()
-        break
+
 
 
 
