@@ -86,41 +86,45 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
 
     start_idx = np.ravel(np.argwhere(diff == 1))
     end_idx = np.ravel(np.argwhere(diff == -1))
+    
 
     if start_idx[0] > end_idx[0]:
         start_idx = np.append(0, start_idx)
 
     if start_idx[-1] > end_idx[-1]:
-        end_idx = np.append(relation.size-1, end_idx)
-
+        end_idx = np.append(end_idx, relation.size-1)
+    
+   
     # удаляем небольшие пробелы между тета-эпохами
-    is_large_intervals = (end_idx[:-1] - start_idx[1:])*fs > accept_win
+    is_large_intervals = (end_idx[:-1] - start_idx[1:]) > accept_win*fs
     is_large_intervals = np.append(True, is_large_intervals)
     start_idx = start_idx[is_large_intervals]
     end_idx = end_idx[is_large_intervals]
 
     # удаляем небольшие тета-эпохи меньще порога
-    is_large_intervals = (end_idx - start_idx)*fs > accept_win
-    is_large_intervals = np.append(True, is_large_intervals)
+    is_large_intervals = (end_idx - start_idx) > accept_win*fs
     start_idx = start_idx[is_large_intervals]
     end_idx = end_idx[is_large_intervals]
 
     # Все готово, упаковываем в один массив
     theta_epoches = np.append(start_idx, end_idx).reshape((2, start_idx.size))
-
+    
     # Инвертируем тета-эпохи, чтобы получить дельта-эпохи
     non_theta_start_idx = end_idx[:-1]
     non_theta_end_idx = start_idx[1:]
+    
 
     # Еще раз обрабатываем начало и конец сигнала
-    if start_idx[0] != 0:
+    if start_idx[0] > 0:
         non_theta_start_idx = np.append(0, non_theta_start_idx)
         non_theta_end_idx = np.append(start_idx[0], non_theta_end_idx)
-
-    if end_idx[-1] != relation.size-1:
-        non_theta_start_idx = np.append(end_idx[-1], non_theta_start_idx)
-        non_theta_end_idx = np.append(relation.size-1, non_theta_end_idx)
-
+    
+    if end_idx[-1] < relation.size-1:
+        non_theta_start_idx = np.append(non_theta_start_idx, end_idx[-1])
+        non_theta_end_idx = np.append(non_theta_end_idx, relation.size-1)
+    
+    
+    
     # Все готово, упаковываем в один массив
     non_theta_epoches = np.append(non_theta_start_idx, non_theta_end_idx).reshape((2, non_theta_start_idx.size))
 
@@ -167,7 +171,7 @@ def get_over_all_epoches(epoches_indexes, spike_train):
         spikes_during_epoches = np.append(spikes_during_epoches, spikes_in_epoch)
     return spikes_during_epoches
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def get_mean_spike_rate_by_epoches(epoches_indexes, spike_train, samplingRate):
     """
     :param epoches_indexes: массив начал и концов тета эпох в формате
@@ -178,8 +182,11 @@ def get_mean_spike_rate_by_epoches(epoches_indexes, spike_train, samplingRate):
     """
 
     spikes = []
+    print(epoches_indexes.shape)
     for (start_idx, end_idx) in epoches_indexes:
         spikes_in_epoches = get_for_one_epoch((start_idx, end_idx), spike_train)
+        
+        print(end_idx - start_idx)
         spikes_rate = spikes_in_epoches.size / (end_idx - start_idx) * samplingRate
         spikes.append(spikes_rate)
     spikes = np.asarray(spikes)

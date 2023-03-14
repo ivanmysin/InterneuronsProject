@@ -35,7 +35,7 @@ def run_processing_2(params):
                     if spike_train.size == 0: continue
 
                     spike_train = np.round(spike_train * samplingRate).astype(np.int64)
-
+                    
                     # Находим среднюю частоту разрядов в тета эпохах
                     ts_spike_rate, ts_spike_rate_std = plib.get_mean_spike_rate_by_epoches(theta_epoches, spike_train, samplingRate)
                     non_ts_spike_rate, non_ts_std_spike_rate = plib.get_mean_spike_rate_by_epoches(non_theta_epoches, spike_train, samplingRate)

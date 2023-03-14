@@ -81,10 +81,22 @@ def run_processing_1(params):
 
             theta_epoches, non_theta_epoches = get_theta_non_theta_epoches(filtered_lfp["theta"], filtered_lfp["delta"], fs,\
                                                         theta_epoches_params["theta_threshold"], theta_epoches_params["accept_window_theta_shreshold"])
+            
+            if np.sum((theta_epoches[1, :] - theta_epoches[0, :]) < 0):
+                print("Negative theta epoches!!")
+            if np.sum((non_theta_epoches[1, :] - non_theta_epoches[0, :]) < 0):
+                print("Negative non_theta_epoches!!")
+            
+            
+            
             lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
             lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
 
             ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs, ripples_detec["threshold"], ripples_detec["accept_win"])
+            
+            if np.sum( (ripple_epoches[1, :] - ripple_epoches[0, :]) < 0 ):
+                print("Negative ripple_epoches!!")
+            
             lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
 
             try:
