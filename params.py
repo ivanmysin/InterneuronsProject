@@ -1,5 +1,4 @@
 
-
 rhythms_freqs_range = {
     # Гц
     "delta": [1, 4],
@@ -24,6 +23,12 @@ circ_means_options = {
     "ripples": 'normalized',
 
 }
+
+ripples_detec = {
+    "threshold" : 4,
+    "accept_win" : 0.02
+}
+
 
 feasures_names = ["theta_phi", "theta_R"]
 # gamma phases in theta state, s - slow, m - medium, f - fast

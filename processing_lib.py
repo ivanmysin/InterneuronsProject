@@ -3,16 +3,21 @@ from scipy.signal import butter, filtfilt, hilbert
 from scipy.signal.windows import parzen
 from numba import jit
 
-#@jit(nopython=True)
-def clear_articacts(lfp, win_size=101, threshold=0.1):
+@jit(nopython=True)
+def __clear_articacts(lfp, win, threshold):
     lfp = lfp - np.mean(lfp)
     lfp_std = np.std(lfp)
     is_large = np.logical_and( (lfp > 10*lfp_std), (lfp < 10*lfp_std) )
     is_large = is_large.astype(np.float64)
-    is_large = np.convolve(is_large, parzen(win_size), mode='same')
+    is_large = np.convolve(is_large, win)
+    is_large = is_large[win.size // 2:-win.size // 2 + 1]
     is_large = is_large > threshold
-
     lfp[is_large] = np.random.normal(0, 0.001*lfp_std, np.sum(is_large) )
+    return lfp
+
+def clear_articacts(lfp, win_size=101, threshold=0.1):
+    win = parzen(win_size)
+    lfp = __clear_articacts(lfp, win, threshold)
     return lfp
 
 def butter_bandpass(lowcut, highcut, fs, order=5):
@@ -29,25 +34,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     return y
 
 
-def merge_ripple_zones(starts, ends, fs, gap_to_unite=5):
-    """
-    :param starts, ends: Массивы начал и окончаний рипплов
-    :param fs: Частота дискретизации в Гц
-    :param gap_to_unite: Максимальное время между рипплами, при котором они
-                        считаются за один риппл в мс
-    :return ripples: Массив. Первый индекс - начала риппла, второй индекс -
-                     конец. Указано в единицах, которые подавались на вход
-    """
-
-    merge_end_indeces_to_delete = np.where(starts[1:] - ends[:-1] <= gap_to_unite * fs / 1000 )[0]
-    merge_start_indeces_to_delete = merge_end_indeces_to_delete + 1
-    ends = np.delete(ends, merge_end_indeces_to_delete)
-    starts = np.delete(starts, merge_start_indeces_to_delete)
-
-    ripples = np.vstack((starts, ends))
-    return ripples
-
-#@jit(nopython=True)
+@jit(nopython=True)
 def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     """
     :param ripples_lfp: сигнал lfp, отфильтрованный в риппл-диапазоне
@@ -67,17 +54,17 @@ def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     start_idx = np.ravel(np.argwhere(diff == 1))
     end_idx = np.ravel(np.argwhere(diff == -1))
 
-    if end_idx[0] < start_idx[0]:
-        start_idx.insert(0, 0)
+    if start_idx[0] > end_idx[0]:
+        end_idx = end_idx[1:]
 
     if start_idx[-1] > end_idx[-1]:
-        end_idx.append(len(ripples_lfp) - 1)
+        start_idx = start_idx[:-1]
 
     accept_intervals = (end_idx - start_idx) > accept_win * fs
     start_idx = start_idx[accept_intervals]
     end_idx = end_idx[accept_intervals]
 
-    ripples_epoches = np.vstack([start_idx, end_idx])
+    ripples_epoches = np.append(start_idx, end_idx).reshape((2, start_idx.size))
     return ripples_epoches
 
 @jit(nopython=True)
@@ -89,76 +76,55 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
     :param accept_win : порог во времени, в котором переход не считается.
     :return: массив индексов начала и конца тета-эпох, другой массив для нетета-эпох
     """
-    sampling_period = 1 / fs
-
     theta_amplitude = np.abs(theta_lfp)
     delta_amplitude = np.abs(delta_lfp)
 
     relation = theta_amplitude / delta_amplitude
+    is_up_threshold = relation > theta_threshold
+    is_up_threshold = is_up_threshold.astype(np.int32)
+    diff = np.diff(is_up_threshold)
 
-    theta_state_inds = []
-    non_theta_state_inds = []
+    start_idx = np.ravel(np.argwhere(diff == 1))
+    end_idx = np.ravel(np.argwhere(diff == -1))
 
-    for ind, i in enumerate(relation):
-        if i >= theta_threshold:
-            theta_state_inds.append(ind)
-        else:
-            non_theta_state_inds.append(ind)
+    if start_idx[0] > end_idx[0]:
+        start_idx = np.append(0, start_idx)
 
-    theta_state_inds = np.asarray(theta_state_inds)
-    theta_array = theta_state_inds[1:] - theta_state_inds[:-1]
+    if start_idx[-1] > end_idx[-1]:
+        end_idx = np.append(relation.size-1, end_idx)
 
-    non_theta_state_inds = np.asarray(non_theta_state_inds)
-    non_theta_array = non_theta_state_inds[1:] - non_theta_state_inds[:-1]
+    # удаляем небольшие пробелы между тета-эпохами
+    is_large_intervals = (end_idx[:-1] - start_idx[1:])*fs > accept_win
+    is_large_intervals = np.append(True, is_large_intervals)
+    start_idx = start_idx[is_large_intervals]
+    end_idx = end_idx[is_large_intervals]
 
-    theta_states = []
-    start_theta = 0
+    # удаляем небольшие тета-эпохи меньще порога
+    is_large_intervals = (end_idx - start_idx)*fs > accept_win
+    is_large_intervals = np.append(True, is_large_intervals)
+    start_idx = start_idx[is_large_intervals]
+    end_idx = end_idx[is_large_intervals]
 
-    for i in range(len(theta_array)):
-        if theta_array[i] != 1:
-            stop_theta_ind = theta_state_inds[i]
+    # Все готово, упаковываем в один массив
+    theta_epoches = np.append(start_idx, end_idx).reshape((2, start_idx.size))
 
-            epoch = [theta_state_inds[start_theta], stop_theta_ind]
+    # Инвертируем тета-эпохи, чтобы получить дельта-эпохи
+    non_theta_start_idx = end_idx[:-1]
+    non_theta_end_idx = start_idx[1:]
 
-            theta_states.append(epoch)
+    # Еще раз обрабатываем начало и конец сигнала
+    if start_idx[0] != 0:
+        non_theta_start_idx = np.append(0, non_theta_start_idx)
+        non_theta_end_idx = np.append(start_idx[0], non_theta_end_idx)
 
-            start_theta = i + 1
+    if end_idx[-1] != relation.size-1:
+        non_theta_start_idx = np.append(end_idx[-1], non_theta_start_idx)
+        non_theta_end_idx = np.append(relation.size-1, non_theta_end_idx)
 
-    time_filtered_theta_states = []
+    # Все готово, упаковываем в один массив
+    non_theta_epoches = np.append(non_theta_start_idx, non_theta_end_idx).reshape((2, non_theta_start_idx.size))
 
-    for state in theta_states:
 
-        length = state[1] - state[0]
-        secs = length / sampling_period
-
-        if secs >= accept_win:
-            time_filtered_theta_states.append(state)
-
-    non_theta_states = []
-    start_non_theta = 0
-
-    for i in range(len(non_theta_array)):
-        if non_theta_array[i] != 1:
-            stop_non_theta = non_theta_state_inds[i]
-
-            epoch = [non_theta_state_inds[start_non_theta], stop_non_theta]
-
-            non_theta_states.append(epoch)
-
-            start_non_theta = i + 1
-
-    time_filtered_non_theta_states = []
-
-    for state in non_theta_states:
-
-        length = state[1] - state[0]
-        secs = length / sampling_period
-
-        if secs >= accept_win:
-            time_filtered_non_theta_states.append(state)
-
-    theta_epoches = np.asarray(time_filtered_theta_states)
-    non_theta_epoches = np.asarray(time_filtered_non_theta_states)
     return theta_epoches, non_theta_epoches
 
 

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import h5py
 from processing_lib import get_ripples_episodes_indexes, get_theta_non_theta_epoches, butter_bandpass_filter, clear_articacts
-from params import rhythms_freqs_range, theta_epoches_params
+from params import rhythms_freqs_range, theta_epoches_params, ripples_detec
 from scipy.signal import hilbert
 import multiprocessing
 
@@ -84,7 +84,7 @@ def run_processing_1(params):
             lfp_target_ele_group.create_dataset('theta_epoches', data = theta_epoches)
             lfp_target_ele_group.create_dataset('non_theta_epoches', data = non_theta_epoches)
 
-            ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs)
+            ripple_epoches = get_ripples_episodes_indexes(filtered_lfp["ripples"], fs, ripples_detec["threshold"], ripples_detec["accept_win"])
             lfp_target_ele_group.create_dataset('ripple_epoches', data = ripple_epoches)
 
             try:
@@ -105,15 +105,16 @@ def run_processing_1(params):
         print(file_idx, "  ", file_name + " is processed")
         target_hdf5.close()
         sourse_hdf5.close()
+        break
 
 
 
 
 def main():
-    sourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
-    # sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/' # '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
-    target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
-    #target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/' #'/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    #csourses_path = '/media/ivan/Seagate Backup Plus Drive/Data/myCRCNC/hc-3/'
+    sourses_path = '/media/usb/Data/Transformed_CRCNC/hc-3/'
+    # target_path = '/media/ivan/Seagate Backup Plus Drive/Data/tranpsposed/'
+    target_path = '/media/usb/Data/InterneuronsProject/preprocessing_1/'
 
     SelectedFiles = select_files(sourses_path)
     n_cpu = multiprocessing.cpu_count()
