@@ -23,88 +23,79 @@ def get_ripples_episodes_indexes(lfp, fs):
 
     pass
 
-def get_theta_non_theta_epoches(theta_lfp, delta_lfp, sampling_period):
-
+def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, accept_win=0.8):
     """
     :param theta_lfp: отфильтрованный в тета-диапазоне LFP
     :param delta_lfp: отфильтрованный в дельа-диапазоне LFP
+    :param theta_threshold : порог для отделения тета- от дельта-эпох
+    :param accept_win : порог во времени, в котором переход не считается.
     :return: массив индексов начала и конца тета-эпох, другой массив для нетета-эпох
     """
-    theta_analytic_signal = signal.hilbert(theta_lfp)
-    delta_analytic_signal = signal.hilbert(delta_lfp)
-
-    theta_analytic_signal = theta_analytic_signal.reshape((-1, 1))
-    delta_analytic_signal = delta_analytic_signal.reshape((-1, 1))
-
-    theta_amplitude = np.abs(theta_analytic_signal)
-    delta_amplitude = np.abs(delta_analytic_signal)
-
+    theta_amplitude = np.abs(theta_lfp)
+    delta_amplitude = np.abs(delta_lfp)
+    
     relation = theta_amplitude / delta_amplitude
+#     relation = relation[relation < 20]
+    is_up_threshold = relation > theta_threshold
+#     is_up_threshold = stats.zscore(relation) > theta_threshold 
+# не забудь про изменение порога 
+    is_up_threshold = is_up_threshold.astype(np.int32)
 
-    theta_state_inds = []
-    non_theta_state_inds = []
+    f, a = plt.subplots(nrows=2, figsize=(15, 10))
+    a[0].hist(theta_amplitude, bins=100)
+    a[1].hist(delta_amplitude, bins=100)
 
-    for ind, i in enumerate(relation):
-        if i >= 2:
-            theta_state_inds.append(ind)
-        else:
-            non_theta_state_inds.append(ind)
+    relation = relation[relation < 20]
+    f, a = plt.subplots(nrows=1, figsize=(15, 5))
+    a.hist(relation, bins=100)
+    
+    
+    diff = np.diff(is_up_threshold)
 
-    theta_state_inds = np.asarray(theta_state_inds)
-    theta_array = theta_state_inds[1:] - theta_state_inds[:-1]
+    start_idx = np.ravel(np.argwhere(diff == 1))
+    end_idx = np.ravel(np.argwhere(diff == -1))
 
-    non_theta_state_inds = np.asarray(non_theta_state_inds)
-    non_theta_array = non_theta_state_inds[1:] - non_theta_state_inds[:-1]
+    if start_idx[0] > end_idx[0]:
+        start_idx = np.append(0, start_idx)
 
-    theta_states = []
-    start_theta = 0
+    if start_idx[-1] > end_idx[-1]:
+        end_idx = np.append(end_idx, relation.size-1)
+    
+   
+    # игнорируем небольшие пробелы между тета-эпохами
+    large_intervals = (start_idx[1:] - end_idx[:-1]) > accept_win*fs
+    large_intervals = np.append(True, large_intervals)
+    start_idx = start_idx[large_intervals]
+    end_idx = end_idx[large_intervals]
 
-    for i in range(len(theta_array)):
-        if theta_array[i] != 1:
-            stop_theta_ind = theta_state_inds[i]
+    # игнорируем небольшие тета-эпохи 
+    large_th_epochs = (end_idx - start_idx) > accept_win*fs
+    start_idx = start_idx[large_th_epochs]
+    end_idx = end_idx[large_th_epochs] 
 
-            epoch = [theta_state_inds[start_theta], stop_theta_ind]
+    # Все готово, упаковываем в один массив
+    theta_epoches = np.append(start_idx, end_idx).reshape((2, start_idx.size))
+    
+    # Инвертируем тета-эпохи, чтобы получить дельта-эпохи
+    non_theta_start_idx = end_idx[:-1]
+    non_theta_end_idx = start_idx[1:]
 
-            theta_states.append(epoch)
+    # Еще раз обрабатываем начало и конец сигнала
+    if start_idx[0] > 0:
+        non_theta_start_idx = np.append(0, non_theta_start_idx)
+        non_theta_end_idx = np.append(start_idx[0], non_theta_end_idx)
+    
+    if end_idx[-1] < relation.size-1:
+        non_theta_start_idx = np.append(non_theta_start_idx, end_idx[-1])
+        non_theta_end_idx = np.append(non_theta_end_idx, relation.size-1)
+    
+    
+    # Все готово, упаковываем в один массив
+    non_theta_epoches = np.append(non_theta_start_idx, non_theta_end_idx).reshape((2, non_theta_start_idx.size))
 
-            start_theta = i + 1
 
-    time_filtered_theta_states = []
+    return theta_epoches, non_theta_epoches
 
-    for state in theta_states:
-
-        length = state[1] - state[0]
-        secs = length / sampling_period
-
-        if secs >= 7:
-            time_filtered_theta_states.append(state)
-
-    non_theta_states = []
-    start_non_theta = 0
-
-    for i in range(len(non_theta_array)):
-        if non_theta_array[i] != 1:
-            stop_non_theta = non_theta_state_inds[i]
-
-            epoch = [non_theta_state_inds[start_non_theta], stop_non_theta]
-
-            non_theta_states.append(epoch)
-
-            start_non_theta = i + 1
-
-    time_filtered_non_theta_states = []
-
-    for state in non_theta_states:
-
-        length = state[1] - state[0]
-        secs = length / sampling_period
-
-        if secs >= 3:
-            time_filtered_non_theta_states.append(state)
-
-    theta_nontheta_dict = {'theta_state': time_filtered_theta_states,
-                           'non_theta_state': time_filtered_non_theta_states}
-    return (theta_nontheta_dict)
 
 def get_circular_mean_R(filtered_lfp, fs, spike_train):
     """
