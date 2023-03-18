@@ -38,7 +38,7 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
 #     relation = relation[relation < 20]
     is_up_threshold = relation > theta_threshold
 #     is_up_threshold = stats.zscore(relation) > theta_threshold 
-# не забудь про изменение порога 
+# в случе z-scoe необходимо изменение порога 
     is_up_threshold = is_up_threshold.astype(np.int32)
 
     f, a = plt.subplots(nrows=2, figsize=(15, 10))
