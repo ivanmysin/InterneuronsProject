@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.signal import butter, filtfilt, hilbert
-from scipy import signal
+from scipy.signal.windows import parzen
+from numba import jit
+
 class Filtrate_lfp():
     def __init__(self, lowcut, highcut, fs, order):
         self.fs = fs
@@ -8,22 +10,69 @@ class Filtrate_lfp():
         self.lowcut = lowcut / self.nyq
         self.highcut = highcut / self.nyq
         self.order = order
-        self.b, self.a = signal.butter(N=self.order, Wn=[self.lowcut, self.highcut], btype='bandpass')
+        self.b, self.a = butter(N=self.order, Wn=[self.lowcut, self.highcut], btype='bandpass')
 
     def butter_bandpass_filter(self, lfp):
-        filtered = signal.filtfilt(self.b, self.a, lfp)
+        filtered = filtfilt(self.b, self.a, lfp)
         return filtered
+        
+@jit(nopython=True)
+def __clear_articacts(lfp, win, threshold):
+    lfp = lfp - np.mean(lfp)
+    lfp_std = np.std(lfp)
+    is_large = np.logical_and( (lfp > 10*lfp_std), (lfp < 10*lfp_std) )
+    is_large = is_large.astype(np.float64)
+    is_large = np.convolve(is_large, win)
+    is_large = is_large[win.size // 2:-win.size // 2 + 1]
+    is_large = is_large > threshold
+    lfp[is_large] = np.random.normal(0, 0.001*lfp_std, np.sum(is_large) )
+    return lfp
 
-def get_ripples_episodes_indexes(lfp, fs):
+
+def clear_articacts(lfp, win_size=101, threshold=0.1):
+    win = parzen(win_size)
+    lfp = __clear_articacts(lfp, win, threshold)
+    return lfp
+
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return b, a
+
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = filtfilt(b, a, data)
+    return y
+
+
+@jit(nopython=True)
+def get_ripples_episodes_indexes(ripples_lfp, fs, threshold=4, accept_win=0.02):
     """
-    :param lfp: сигнал lfp
+    :param ripples_lfp: сигнал lfp, отфильтрованный в риппл-диапазоне
     :param fs: частота дискретизации
-    :return:  массив начал и концов риппл событий
+    :param threshold: порог для определения риппла
+    :param accept_win: минимальная длина риппла в сек
+    :return:  списки начал и концов риппл событий в единицах, указанных в частоте дискретизации (fs)
     """
 
-    pass
+    ripples_lfp_th = threshold * np.std(ripples_lfp.real)
+    ripples_abs = np.abs(ripples_lfp)
+    is_up_threshold = ripples_abs > ripples_lfp_th
+    is_up_threshold = is_up_threshold.astype(np.int32)
+    diff = np.diff(is_up_threshold)
+    diff = np.append(is_up_threshold[0], diff)
 
-def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, accept_win=0.8):
+    start_idx = np.ravel(np.argwhere(diff == 1))
+    end_idx = np.ravel(np.argwhere(diff == -1))
+
+    if start_idx[0] > end_idx[0]:
+        end_idx = end_idx[1:]
+
+@jit(nopython=True)
+def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, accept_win=2):
     """
     :param theta_lfp: отфильтрованный в тета-диапазоне LFP
     :param delta_lfp: отфильтрованный в дельа-диапазоне LFP
@@ -33,6 +82,7 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
     """
     theta_amplitude = np.abs(theta_lfp)
     delta_amplitude = np.abs(delta_lfp)
+
     
     relation = theta_amplitude / delta_amplitude
 #     relation = relation[relation < 20]
@@ -40,20 +90,15 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
 #     is_up_threshold = stats.zscore(relation) > theta_threshold 
 # в случе z-scoe необходимо изменение порога 
     is_up_threshold = is_up_threshold.astype(np.int32)
+    relation = theta_amplitude / delta_amplitude
+    is_up_threshold = relation > theta_threshold
+    is_up_threshold = is_up_threshold.astype(np.int32)
 
-    f, a = plt.subplots(nrows=2, figsize=(15, 10))
-    a[0].hist(theta_amplitude, bins=100)
-    a[1].hist(delta_amplitude, bins=100)
-
-    relation = relation[relation < 20]
-    f, a = plt.subplots(nrows=1, figsize=(15, 5))
-    a.hist(relation, bins=100)
-    
-    
     diff = np.diff(is_up_threshold)
 
     start_idx = np.ravel(np.argwhere(diff == 1))
     end_idx = np.ravel(np.argwhere(diff == -1))
+
 
     if start_idx[0] > end_idx[0]:
         start_idx = np.append(0, start_idx)
@@ -97,21 +142,72 @@ def get_theta_non_theta_epoches(theta_lfp, delta_lfp, fs, theta_threshold=2, acc
     return theta_epoches, non_theta_epoches
 
 
-def get_circular_mean_R(filtered_lfp, fs, spike_train):
+
+
+@jit(nopython=True)
+def get_circular_mean_R(filtered_lfp, spike_train, mean_calculation = 'uniform'):
     """
     :param filtered_lfp: отфильтрованный в нужном диапазоне LFP
-    :param fs: частота дискретизации
     :param spike_train: времена импульсов
+    :mean_calculation: способ вычисления циркулярного среднего и R
     :return: циркулярное среднее и R
+    """
+    #fs - не нужно, т.к. спайки указаны в частоте записи лфп
+    if spike_train.size == 0:
+        return np.nan, np.nan
+    if mean_calculation == 'uniform':
+        angles = np.angle(np.take(filtered_lfp, spike_train))
+        mean = np.mean(np.exp(angles * 1j))
+        circular_mean = np.angle(mean)
+        R = np.abs(mean)
+        return circular_mean, R
+
+    elif mean_calculation == 'normalized':
+        phase_signal = np.take(filtered_lfp, spike_train)
+        phase_signal = phase_signal / np.sum(np.abs(phase_signal))
+        mean = np.sum(phase_signal)
+        circular_mean = np.angle(mean)
+        R = np.abs(mean)
+        return circular_mean, R
+    else:
+        raise ValueError("This mean_calculation is not acceptable")
+@jit(nopython=True)
+def get_for_one_epoch(limits, spikes):
+    x = spikes[(spikes >= limits[0]) & (spikes < limits[1])]
+    return x
+@jit(nopython=True)
+def get_over_all_epoches(epoches_indexes, spike_train):
+    spikes_during_epoches = np.empty(0, dtype=spike_train.dtype)
+    for (start_idx, end_idx) in epoches_indexes:
+        spikes_in_epoch = get_for_one_epoch((start_idx, end_idx), spike_train)
+        spikes_during_epoches = np.append(spikes_during_epoches, spikes_in_epoch)
+    return spikes_during_epoches
+
+#@jit(nopython=True)
+def get_mean_spike_rate_by_epoches(epoches_indexes, spike_train, samplingRate):
+    """
+    :param epoches_indexes: массив начал и концов тета эпох в формате
+                          [[start, stop], [start, stop]]
+    :param spike_train: индексы импульсов
+    :param samplingRate: частота дискретизации
+    :return: среднее для  эпох, ст.откл.
     """
 
-def get_mean_spike_rate_by_epoches(spike_train, epoches):
-    """
-    :param epoches: массив начал и концов эпох
-    :param spike_train: времена импульсов
-    :return: циркулярное среднее и R
-    """
-    pass
+    spikes = []
+    print(epoches_indexes.shape)
+    for (start_idx, end_idx) in epoches_indexes:
+        spikes_in_epoches = get_for_one_epoch((start_idx, end_idx), spike_train)
+        
+        print(end_idx - start_idx)
+        spikes_rate = spikes_in_epoches.size / (end_idx - start_idx) * samplingRate
+        spikes.append(spikes_rate)
+    spikes = np.asarray(spikes)
+    if spikes.size == 0:
+        return 0, 0
+    spike_rate = np.mean(spikes)
+    spike_rate_std = np.std(spikes)
+
+    return spike_rate, spike_rate_std
 
 
 class InterneuronClassifier:
